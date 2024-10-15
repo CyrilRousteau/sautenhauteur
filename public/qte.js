@@ -32,12 +32,15 @@ class StartScene extends Phaser.Scene {
         this.scene.start('StadeScene');
       });
     }
-  }
+}
 
 class StadeScene extends Phaser.Scene {
     constructor() {
         super({ key: 'StadeScene' });
-        this.elapsedTime = 0; 
+        this.elapsedTime = 0;
+        this.timerStarted = false;
+        this.timer = null;
+        this.maxTime = 10; // Le temps maximum pour obtenir des points (10 secondes)
     }
 
     preload() {
@@ -54,6 +57,8 @@ class StadeScene extends Phaser.Scene {
     }
 
     create() {
+        this.elapsedTime = 0;
+        this.timerStarted = false;
         this.background = this.add.image(0, 0, 'fond').setOrigin(0, 0);
         this.background.displayWidth = this.scale.width; 
         this.background.displayHeight = this.scale.height;
@@ -97,21 +102,63 @@ class StadeScene extends Phaser.Scene {
 
         this.gameOver = false;
 
-        this.time.addEvent({
-            delay: 1000, 
-            callback: () => {
-                this.elapsedTime += 1; 
-            },
-            loop: true 
-        });
+        this.input.keyboard.on('keydown', (event) => {
+            if (!this.gameOver) {
+                if (!this.timerStarted) {
+                    this.startTimer();
+                }
+                const pressedKey = event.key.toLowerCase();
+                if (pressedKey === this.sequence[this.sequenceIndex].toLowerCase()) {
+                    this.sequenceIndex++;
+                    if (this.sequenceIndex === this.sequence.length) {
+                        console.log('Séquence terminée avec succès !');
+                        this.idleSprite.destroy();
+                        this.runSprite = this.add.sprite(this.scale.width / 8, this.scale.height - 180, 'Run');
+                        this.runSprite.setScale(2.1);
+                        this.runSprite.play('runAnimation');
 
-         this.input.keyboard.on('keydown', (event) => {
-        if (!this.gameOver) {
-            const pressedKey = event.key.toLowerCase();
-            if (pressedKey === this.sequence[this.sequenceIndex].toLowerCase()) {
-                this.sequenceIndex++;
-                if (this.sequenceIndex === this.sequence.length) {
-                    console.log('Séquence terminée avec succès !');
+                        this.tweens.add({
+                            targets: this.runSprite,
+                            x: this.runSprite.x + 350,
+                            duration: 800,
+                            ease: 'Linear',
+                            onComplete: () => {
+                                this.runSprite.destroy();
+                                this.jumpSprite = this.add.sprite(this.runSprite.x, this.runSprite.y, 'Jump');
+                                this.jumpSprite.setScale(2.1);
+                                this.jumpSprite.play('jumpAnimation');
+
+                                this.tweens.add({
+                                    targets: this.jumpSprite,
+                                    y: this.jumpSprite.y - 250,
+                                    duration: 500,
+                                    ease: 'Quad.easeInOut',
+                                    yoyo: true,
+                                    repeat: 0,
+                                    onComplete: () => {
+                                        this.idleSprite = this.add.sprite(this.jumpSprite.x, this.jumpSprite.y - 50, 'Idle');
+                                        this.idleSprite.setScale(2.1);
+                                        this.idleSprite.play('idleAnimation');
+                                        this.jumpSprite.destroy();
+
+                                        setTimeout(() => {
+                                            this.onSuccess();
+                                        }, 1500);
+                                    }
+                                });
+
+                                this.tweens.add({
+                                    targets: this.jumpSprite,
+                                    x: this.jumpSprite.x + 300,
+                                    duration: 1000,
+                                    ease: 'Linear'
+                                });
+                            }
+                        });
+                    }
+                } else {
+                    this.gameOver = true; 
+                    console.log('Mauvaise touche ! Séquence échouée !');
                     this.idleSprite.destroy();
                     this.runSprite = this.add.sprite(this.scale.width / 8, this.scale.height - 180, 'Run');
                     this.runSprite.setScale(2.1);
@@ -136,13 +183,13 @@ class StadeScene extends Phaser.Scene {
                                 yoyo: true,
                                 repeat: 0,
                                 onComplete: () => {
-                                    this.idleSprite = this.add.sprite(this.jumpSprite.x, this.jumpSprite.y - 50, 'Idle');
-                                    this.idleSprite.setScale(2.1);
-                                    this.idleSprite.play('idleAnimation');
+                                    this.deadSprite = this.add.sprite(this.jumpSprite.x - 50, this.jumpSprite.y - 50, 'Dead');
+                                    this.deadSprite.setScale(2.1);
+                                    this.deadSprite.play('deadAnimation');
                                     this.jumpSprite.destroy();
 
                                     setTimeout(() => {
-                                        this.onSuccess();
+                                        this.onFail();
                                     }, 1500);
                                 }
                             });
@@ -156,65 +203,41 @@ class StadeScene extends Phaser.Scene {
                         }
                     });
                 }
-            } else {
-                this.gameOver = true; 
-                console.log('Mauvaise touche ! Séquence échouée !');
-                this.idleSprite.destroy();
-                this.runSprite = this.add.sprite(this.scale.width / 8, this.scale.height - 180, 'Run');
-                this.runSprite.setScale(2.1);
-                this.runSprite.play('runAnimation');
-
-                this.tweens.add({
-                    targets: this.runSprite,
-                    x: this.runSprite.x + 350,
-                    duration: 800,
-                    ease: 'Linear',
-                    onComplete: () => {
-                        this.runSprite.destroy();
-                        this.jumpSprite = this.add.sprite(this.runSprite.x, this.runSprite.y, 'Jump');
-                        this.jumpSprite.setScale(2.1);
-                        this.jumpSprite.play('jumpAnimation');
-
-                        this.tweens.add({
-                            targets: this.jumpSprite,
-                            y: this.jumpSprite.y - 250,
-                            duration: 500,
-                            ease: 'Quad.easeInOut',
-                            yoyo: true,
-                            repeat: 0,
-                            onComplete: () => {
-                                this.deadSprite = this.add.sprite(this.jumpSprite.x - 50, this.jumpSprite.y - 50, 'Dead');
-                                this.deadSprite.setScale(2.1);
-                                this.deadSprite.play('deadAnimation');
-                                this.jumpSprite.destroy();
-
-                                setTimeout(() => {
-                                    this.onFail();
-                                }, 1500);
-                            }
-                        });
-
-                        this.tweens.add({
-                            targets: this.jumpSprite,
-                            x: this.jumpSprite.x + 300,
-                            duration: 1000,
-                            ease: 'Linear'
-                        });
-                    }
-                });
             }
-        }
-    });
+        });
+    }
+
+    startTimer() {
+        this.timerStarted = true;
+        this.timer = this.time.addEvent({
+            delay: 100,
+            callback: () => {
+                this.elapsedTime += 0.1;
+                if (this.elapsedTime >= this.maxTime) {
+                    this.timer.remove();
+                    this.onFail();
+                }
+            },
+            loop: true
+        });
+    }
+
+    calculateScore() {
+        let score = Math.max(0, 130 - Math.floor(this.elapsedTime * 10));
+        return score; // Pas d'arrondi
     }
 
     onFail() {
+        if (this.timer) this.timer.remove();
         this.scene.stop('StadeScene');
         this.scene.start('DefeatScene');
     }
 
     onSuccess() {
+        if (this.timer) this.timer.remove();
+        let score = this.calculateScore();
         this.scene.stop('StadeScene'); 
-        this.scene.start('VictoryScene', { elapsedTime: this.elapsedTime });
+        this.scene.start('VictoryScene', { score: score });
     }
 
     generateSequence(length) {
@@ -266,35 +289,33 @@ class DefeatScene extends Phaser.Scene {
     }
 }
 
-
 class VictoryScene extends Phaser.Scene {
     constructor() {
         super({ key: 'VictoryScene' });
     }
 
     preload() {
-        this.load.image('fondVictory', 'assets/scorelv1.png'); 
-        this.load.image('buttonImage', 'assets/niveau2.png'); 
+        this.load.image('fondVictory', 'assets/score.png'); 
+        this.load.image('retryButton', 'assets/btn.png');
     }
 
     create(data) {
         this.add.image(this.scale.width / 2, this.scale.height / 2, 'fondVictory').setDisplaySize(this.scale.width, this.scale.height);
 
-        const elapsedTimeText = `${data.elapsedTime} secondes`;
-        this.add.text(this.scale.width / 2, this.scale.height / 2 +20, elapsedTimeText, { fontSize: '32px', fill: '#000' })
+        const scoreText = `Score: ${data.score}`;
+        this.add.text(this.scale.width / 2, this.scale.height / 2 + 20, scoreText, { fontSize: '32px', fill: '#000' })
             .setOrigin(0.5)
             .setAlign('center'); 
 
-        const nextLevelButton = this.add.image(this.scale.width / 2, this.scale.height - 100, 'buttonImage') 
+        const retryButton = this.add.image(this.scale.width / 2, this.scale.height - 100, 'retryButton') 
             .setInteractive()
             .setOrigin(0.5);
 
-        nextLevelButton.on('pointerdown', () => {
+        retryButton.on('pointerdown', () => {
             this.scene.start('StadeScene'); 
         });
     }
 }
-
 
 var config = {
     type: Phaser.AUTO,
